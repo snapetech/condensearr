@@ -1,0 +1,28 @@
+Condensearr
+Copyright (c) 2025 snapetech
+
+This project is licensed under the MIT License. See the file LICENSE in this directory.
+
+This software uses or may use the following open-source packages (installed separately by the user; not bundled in this repository):
+
+  - NumPy (https://numpy.org/)
+    License: BSD-3-Clause
+    Used for: array math and signal processing (required)
+
+  - pytesseract (optional)
+    License: Apache License 2.0
+    Used for: OCR of scorebug / clock text
+
+  - opencv-python (optional)
+    License: Apache License 2.0 / BSD
+    Used for: auto scorebug region detection
+
+  - Tesseract OCR (optional, system binary)
+    License: Apache License 2.0
+    Used for: text recognition when pytesseract is used
+
+  - FFmpeg / ffprobe (external binaries, not bundled)
+    License: LGPL / GPL
+    Used for: video/audio decoding and encoding (invoked as separate process)
+
+Their respective license terms apply to those packages. This NOTICE does not grant any rights beyond those granted by the MIT License for Condensearr itself.

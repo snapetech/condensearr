@@ -1,5 +1,7 @@
 # Condensearr + Tdarr / *Arr automation
 
+**MIT License.** Copyright (c) 2025 snapetech. See [LICENSE](../LICENSE) in the repo root.
+
 Condensearr is **CLI-ready** for automation: non-interactive, exit 0 on success and non-zero on failure, and supports env-based config and output conventions that Tdarr and *Arr custom scripts expect.
 
 ## What’s required for Arr use

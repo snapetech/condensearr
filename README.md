@@ -72,7 +72,8 @@ Condensearr writes `<output>.fused.edl` beside the output so you can validate wi
 
 - **[docs/DESIGN.md](docs/DESIGN.md)** — Design and signal logic (motion, audio, OCR, fusion, validation).
 - **[docs/ARR_INTEGRATION.md](docs/ARR_INTEGRATION.md)** — Tdarr and *Arr integration.
+- **[docs/LEGAL.md](docs/LEGAL.md)** — Legal audit: why MIT, dependency compatibility, sharp corners.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+**MIT License.** Copyright (c) 2025 snapetech. See [LICENSE](LICENSE) for full terms.

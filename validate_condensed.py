@@ -14,6 +14,8 @@ Usage:
 With --diagnostics (from condensearr --emit-diagnostics): runs content-quality checks.
 With --strict: fail on warnings (e.g. max_gap too large, ratio below 1.5).
 Exit: 0 = all checks passed, 1 = validation failed.
+
+License: MIT. Copyright (c) 2025 snapetech. See LICENSE in the repo root.
 """
 
 from __future__ import annotations

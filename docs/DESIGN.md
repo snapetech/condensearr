@@ -1,5 +1,7 @@
 # Condensearr design and logic
 
+**MIT License.** Copyright (c) 2025 snapetech. See [LICENSE](../LICENSE) in the repo root.
+
 This document describes how condensearr chooses what to keep and what to cut, and how validation works.
 
 ## Overview

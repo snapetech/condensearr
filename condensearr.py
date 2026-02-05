@@ -51,6 +51,8 @@ ROI:
   If you don't want to hand-pick a clock ROI, set:
     "ocr": { "auto_detect": true, ... }
   and install opencv-python.
+
+License: MIT. Copyright (c) 2025 snapetech. See LICENSE in the repo root.
 """
 
 from __future__ import annotations
