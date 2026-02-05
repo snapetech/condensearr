@@ -1,0 +1,41 @@
+{
+  "ocr": {
+    "auto_detect": true,
+    "clock_roi": null,
+    "fps": 2.0,
+    "psm": 7,
+    "whitelist": "0123456789:.",
+    "invert": false,
+    "threshold": null,
+    "scale": 2.0,
+    "min_hit_rate": 0.08
+  },
+  "audio_weights": {
+    "w_rms": 0.35,
+    "w_flux": 0.20,
+    "w_whistle": 0.10,
+    "w_motion": 0.35,
+    "hard_whistle_z": 2.6
+  },
+  "combine": {
+    "dt": 0.5,
+    "target_minutes": 18.0,
+    "padding_pre": 2.0,
+    "padding_post": 4.0,
+    "min_segment": 2.0,
+    "merge_gap": 1.25,
+    "hard_peak_z": 2.0,
+    "require_ocr": false,
+    "max_segments": 220,
+    "clock_weight": 1.0,
+    "render_mode": "fused"
+  },
+  "render": {
+    "crf": 20,
+    "preset": "veryfast",
+    "audio_bitrate": "192k",
+    "container": "mkv",
+    "threads": 0,
+    "parallel_jobs": 0
+  }
+}

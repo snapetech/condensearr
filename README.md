@@ -35,6 +35,10 @@ python condensearr.py /path/to/recording.mkv --out /path/to/condensed.mkv --targ
 python condensearr.py /path/to/recording.mkv --config config.json --out condensed.mkv \
   --emit-diagnostics diagnostics.json
 python validate_condensed.py --output condensed.mkv --edl condensed.fused.edl --diagnostics diagnostics.json
+
+# All optionals (OCR/clock, diagnostics, opencv + pytesseract required)
+python condensearr.py /path/to/recording.mkv --config condensearr_config.full.json \
+  --out condensed.mkv --emit-diagnostics diagnostics.json
 ```
 
 ## Options (summary)
@@ -50,6 +54,9 @@ python validate_condensed.py --output condensed.mkv --edl condensed.fused.edl --
 | `--jobs N` | Parallel encode jobs (0 = auto; “nice” mode caps at 2). |
 | `--no-nice` | Don’t use nice/ionice; use full CPU. |
 | `--emit-diagnostics PATH` | Write JSON with validation stats and EDL. |
+| `--auto-roi` | Enable OCR with auto scorebug detection (no config needed if ocr not in config). |
+| `--clock-roi x,y,w,h` | Use this region for clock OCR (overrides config). |
+| `--debug-dir DIR` | Write auto-ROI debug images to DIR. |
 | `--kill-prior` | Kill other running condensearr processes before starting. |
 
 Default behavior runs with low CPU priority (nice 19) and idle I/O (ionice -c 3) and caps parallel encode jobs so the system stays responsive.
@@ -62,6 +69,18 @@ Default behavior runs with low CPU priority (nice 19) and idle I/O (ionice -c 3)
 2. **Content** (with `--diagnostics`) — Kept segments have higher action than cut; most hard events (whistles/peaks) fall inside kept segments; optional max-gap check.
 
 Condensearr writes `<output>.fused.edl` beside the output so you can validate without keeping the temp dir. See [DESIGN.md](docs/DESIGN.md#validation) for the logic.
+
+## All optional / advanced features
+
+To turn on **everything** (OCR clock weighting, auto scorebug detection, diagnostics):
+
+1. Install optional deps: `pip install pytesseract opencv-python` (and a Tesseract binary).
+2. Run with the full config: `--config condensearr_config.full.json --emit-diagnostics diagnostics.json`.
+
+If the log says *"Auto ROI detection failed to find a confident clock region"*, OCR is enabled but no clock region passed the threshold. You can:
+
+- Lower `ocr.auto_detect.min_hit_rate` in the config (e.g. to `0.05`), or  
+- Use `--debug-dir /tmp/condensearr_debug` to inspect candidate regions, then set `--clock-roi x,y,w,h` or add `clock_roi` to the config.
 
 ## Automation (Tdarr / *Arr)
 

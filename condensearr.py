@@ -1171,6 +1171,13 @@ def main() -> int:
     if args.require_ocr:
         cfg.combine.require_ocr = True
 
+    # Enable OCR from CLI when no config supplies it (so --auto-roi uses all optionals)
+    if (args.auto_roi or args.clock_roi) and cfg.ocr is None:
+        cfg.ocr = OcrConfig(auto_detect=bool(args.auto_roi), clock_roi=None)
+        if args.clock_roi:
+            x, y, w, h = [int(x.strip()) for x in args.clock_roi.split(",")]
+            cfg.ocr.clock_roi = Roi(x=x, y=y, w=w, h=h)
+
     if args.out:
         out_path = Path(args.out).expanduser().resolve()
     elif args.out_dir:
@@ -1254,6 +1261,9 @@ def main() -> int:
         clock_mask_dt = None
         clock_conf = 0.0
         used_roi = None
+
+        if cfg.ocr is None:
+            eprint("OCR disabled (no config with 'ocr' section); using action-only weighting.")
 
         if cfg.ocr is not None:
             ocr_cfg = dataclasses.replace(cfg.ocr)
