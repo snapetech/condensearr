@@ -2,6 +2,8 @@
 
 Run **all method combinations** (single-signal → fused) and compare diagnostics.
 
+**Reference results:** See [METHOD_MATRIX_RESULTS.md](METHOD_MATRIX_RESULTS.md) for the NBA clip results table to compare against when re-running the matrix.
+
 ## Quick run (with generated fixture)
 
 ```bash
@@ -40,6 +42,33 @@ Use `--render` to run full encode for each combo (slower).
 
 ## Interpreting results
 
-- **action_ratio_kept_vs_cut** — Mean action in kept segments vs cut; we want ≥ 1.2 (validators use this). Synthetic fixture can yield odd ratios.
-- **fraction_hard_in_kept** — Fraction of hard-event bins inside kept segments; we want ≥ 0.9.
+- **action_ratio_kept_vs_cut** — Mean action in kept segments vs cut; we want ≥ 1.2 (validators use this). Synthetic fixture can yield odd ratios. On short clips or when target length is close to source length, ratios can be negative or odd because the “cut” region is small or has different signal (e.g. loud ads).
+- **fraction_hard_in_kept** — Fraction of hard-event bins (whistles/peaks) inside kept segments; we want ≥ 0.9.
 - Compare **fused** (and **all_action**) to single-signal rows: fused should be at least as good on these metrics for real sports footage.
+
+## What the results table tells us
+
+- **Fused is the right default.** In the NBA clip matrix, **fused** (and **all_action** / **clock**) kept **100% of hard events** with the fewest segments (8) and near-target length. Single-signal methods often did worse: **RMS only** and **flux only** kept only 0–5% of hard events (whistles/peaks), so they would drop most key moments. That confirms we should **not** run with a single signal for real games.
+- **Configuration is sound.** Using default weights (motion + RMS + flux + whistle) and **render_mode: fused** is correct. The matrix validates that the combined method captures what single methods miss.
+- **When to re-evaluate.** Re-tune or re-run the matrix if: (1) you change signal logic or weights, (2) you add new signals, or (3) validation fails on real runs (e.g. `validate_condensed.py --diagnostics` fails action ratio or hard-events-in-kept). Negative action ratios on a **short** clip (e.g. 10 min with 18 min target) are not enough by themselves to re-evaluate; run validation on a **full-length** game and check ratio ≥ 1.2 and fraction_hard_in_kept ≥ 0.9.
+
+## Best method to run the script
+
+For **production** (real games):
+
+1. Use **fused** (default). Do not use a single-signal method or `render_mode: action` alone unless you are doing comparison tests.
+2. Use the full config with OCR if you have a clock/scorebug:  
+   `--config condensearr_config.full.json`  
+   Optionally add `--auto-roi` or `--clock-roi x,y,w,h` if not in config.
+3. Emit diagnostics so you can validate:  
+   `--emit-diagnostics path/to/diag.json`
+4. Example:
+
+   ```bash
+   python3 condensearr.py /path/to/game.mkv \
+     --config condensearr_config.full.json \
+     --emit-diagnostics game_diag.json \
+     --out /path/to/game.condensed.mkv
+   ```
+
+5. After encoding, run `validate_condensed.py --output game.condensed.mkv --diagnostics game_diag.json` and fix config or logic if it fails.

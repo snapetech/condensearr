@@ -15,11 +15,12 @@ env/
 *.swo
 
 # Local config and outputs (don’t commit secrets or huge files)
-*.condensed.mkv
+*.mkv
 *.fused.edl
 diagnostics.json
 config.local.json
 matrix_out/
+matrix_nba/
 
 # OS
 .DS_Store

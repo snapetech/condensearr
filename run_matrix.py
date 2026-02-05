@@ -81,6 +81,7 @@ def main() -> int:
     ap.add_argument("--base-config", type=str, default="", help="Base config JSON (default: condensearr_config.full.json or minimal).")
     ap.add_argument("--render", action="store_true", help="Run full encode for each combo (default: analysis-only).")
     ap.add_argument("--gen-fixture", action="store_true", help="Generate a short test video in out_dir and use it (for CI/demo).")
+    ap.add_argument("--limit", type=int, default=0, help="Run only first N combos (0 = all). For CI/smoke test.")
     args = ap.parse_args()
 
     out_dir = Path(args.out_dir).expanduser().resolve()
@@ -130,6 +131,9 @@ def main() -> int:
     if not combos:
         print("No combos in matrix.", file=sys.stderr)
         return 2
+    if args.limit > 0:
+        combos = combos[: args.limit]
+        print(f"Limited to first {len(combos)} combos (--limit {args.limit}).")
 
     analysis_only = not args.render
     print(f"Running {len(combos)} combos (analysis_only={analysis_only})...")
