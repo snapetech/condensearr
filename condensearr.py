@@ -1135,6 +1135,7 @@ def main() -> int:
     ap.add_argument("--jobs", type=int, default=0, help="Parallel segment encode jobs (0 = use all cores, or 2 when --nice).")
     ap.add_argument("--no-nice", action="store_true", help="Do not run ffmpeg under nice/ionice; use full CPU and I/O (faster, noisier).")
     ap.add_argument("--kill-prior", action="store_true", help="Kill any existing condensearr.py and their ffmpeg children before starting.")
+    ap.add_argument("--analysis-only", action="store_true", help="Run signals and segment selection only; write EDL and diagnostics, skip encode.")
     args = ap.parse_args()
 
     global _play_nice
@@ -1401,9 +1402,12 @@ def main() -> int:
             }
             Path(args.emit_diagnostics).expanduser().resolve().write_text(json.dumps(diag, indent=2) + "\n", encoding="utf-8")
 
-        # Render
-        render_concat_segments(input_path, segs, out_path, cfg.render, tmpdir)
-        eprint(f"Output: {out_path}")
+        # Render (skip if analysis-only)
+        if not args.analysis_only:
+            render_concat_segments(input_path, segs, out_path, cfg.render, tmpdir)
+            eprint(f"Output: {out_path}")
+        else:
+            eprint("Analysis-only: skipped render.")
 
     return 0
 

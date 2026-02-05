@@ -19,6 +19,7 @@ env/
 *.fused.edl
 diagnostics.json
 config.local.json
+matrix_out/
 
 # OS
 .DS_Store

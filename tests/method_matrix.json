@@ -1,0 +1,107 @@
+{
+  "description": "All method combinations from single-signal to full fused. Each row: id, name, audio_weights (w_motion, w_rms, w_flux, w_whistle), render_mode (action | clock | fused). Weights are normalized per row.",
+  "combos": [
+    {
+      "id": "motion",
+      "name": "Motion only",
+      "audio_weights": { "w_motion": 1, "w_rms": 0, "w_flux": 0, "w_whistle": 0 },
+      "render_mode": "action"
+    },
+    {
+      "id": "rms",
+      "name": "RMS only",
+      "audio_weights": { "w_motion": 0, "w_rms": 1, "w_flux": 0, "w_whistle": 0 },
+      "render_mode": "action"
+    },
+    {
+      "id": "flux",
+      "name": "Flux only",
+      "audio_weights": { "w_motion": 0, "w_rms": 0, "w_flux": 1, "w_whistle": 0 },
+      "render_mode": "action"
+    },
+    {
+      "id": "whistle",
+      "name": "Whistle only",
+      "audio_weights": { "w_motion": 0, "w_rms": 0, "w_flux": 0, "w_whistle": 1 },
+      "render_mode": "action"
+    },
+    {
+      "id": "motion_rms",
+      "name": "Motion + RMS",
+      "audio_weights": { "w_motion": 0.5, "w_rms": 0.5, "w_flux": 0, "w_whistle": 0 },
+      "render_mode": "action"
+    },
+    {
+      "id": "motion_flux",
+      "name": "Motion + Flux",
+      "audio_weights": { "w_motion": 0.5, "w_rms": 0, "w_flux": 0.5, "w_whistle": 0 },
+      "render_mode": "action"
+    },
+    {
+      "id": "motion_whistle",
+      "name": "Motion + Whistle",
+      "audio_weights": { "w_motion": 0.5, "w_rms": 0, "w_flux": 0, "w_whistle": 0.5 },
+      "render_mode": "action"
+    },
+    {
+      "id": "rms_flux",
+      "name": "RMS + Flux",
+      "audio_weights": { "w_motion": 0, "w_rms": 0.5, "w_flux": 0.5, "w_whistle": 0 },
+      "render_mode": "action"
+    },
+    {
+      "id": "rms_whistle",
+      "name": "RMS + Whistle",
+      "audio_weights": { "w_motion": 0, "w_rms": 0.5, "w_flux": 0, "w_whistle": 0.5 },
+      "render_mode": "action"
+    },
+    {
+      "id": "flux_whistle",
+      "name": "Flux + Whistle",
+      "audio_weights": { "w_motion": 0, "w_rms": 0, "w_flux": 0.5, "w_whistle": 0.5 },
+      "render_mode": "action"
+    },
+    {
+      "id": "motion_rms_flux",
+      "name": "Motion + RMS + Flux",
+      "audio_weights": { "w_motion": 0.333, "w_rms": 0.333, "w_flux": 0.334, "w_whistle": 0 },
+      "render_mode": "action"
+    },
+    {
+      "id": "motion_rms_whistle",
+      "name": "Motion + RMS + Whistle",
+      "audio_weights": { "w_motion": 0.333, "w_rms": 0.333, "w_flux": 0, "w_whistle": 0.334 },
+      "render_mode": "action"
+    },
+    {
+      "id": "motion_flux_whistle",
+      "name": "Motion + Flux + Whistle",
+      "audio_weights": { "w_motion": 0.333, "w_rms": 0, "w_flux": 0.333, "w_whistle": 0.334 },
+      "render_mode": "action"
+    },
+    {
+      "id": "rms_flux_whistle",
+      "name": "RMS + Flux + Whistle",
+      "audio_weights": { "w_motion": 0, "w_rms": 0.333, "w_flux": 0.333, "w_whistle": 0.334 },
+      "render_mode": "action"
+    },
+    {
+      "id": "all_action",
+      "name": "All signals (action-only)",
+      "audio_weights": { "w_motion": 0.35, "w_rms": 0.35, "w_flux": 0.20, "w_whistle": 0.10 },
+      "render_mode": "action"
+    },
+    {
+      "id": "clock",
+      "name": "Clock only",
+      "audio_weights": { "w_motion": 0.35, "w_rms": 0.35, "w_flux": 0.20, "w_whistle": 0.10 },
+      "render_mode": "clock"
+    },
+    {
+      "id": "fused",
+      "name": "Fused (all + clock weight)",
+      "audio_weights": { "w_motion": 0.35, "w_rms": 0.35, "w_flux": 0.20, "w_whistle": 0.10 },
+      "render_mode": "fused"
+    }
+  ]
+}
