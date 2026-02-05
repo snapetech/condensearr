@@ -12,7 +12,8 @@
 - **Python 3.9+**
 - **numpy** (required)
 - Optional: **pytesseract** + system **tesseract-ocr** (for clock OCR)
-- Optional: **opencv-python** (for auto scorebug detection)
+- Optional: **opencv-python** (for auto scorebug detection and VLM ROI candidates)
+- Optional: **llama-cpp-python** + **huggingface-hub** (for VLM clock ROI calibrator)
 
 ## Install
 
@@ -20,6 +21,8 @@
 pip install numpy
 # Optional for OCR / auto-ROI:
 pip install pytesseract opencv-python
+# Optional for VLM (clock ROI calibrator on real sports footage):
+pip install opencv-python llama-cpp-python huggingface-hub
 ```
 
 ## Quick start
@@ -39,8 +42,6 @@ python3 validate_condensed.py --output condensed.mkv --diagnostics diagnostics.j
 ```
 
 For production runs, use **fused** mode (default) with the full config so motion, audio, and optional clock OCR are all used. See [Best way to run](#best-way-to-run) below. **Default:** variable-length — we remove the most obviously removable (low-action) content. **Optional:** pass `--target-minutes N` to condense to a fixed length (e.g. 18 min). See [docs/DESIGN.md](docs/DESIGN.md#condensing-model).
-
-x “remove by threshold / variable output.” See [docs/DESIGN.md](docs/DESIGN.md#condensing-model).
 
 ## Options (summary)
 
@@ -127,9 +128,51 @@ Or without pytest: `python3 -m unittest discover -s tests -v`
 
 Tests include: CLI help and imports, optional deps, `compute_cut_quality_stats`, and the **method matrix** (matrix JSON structure and a one-combo smoke run with `run_matrix.py --gen-fixture --limit 1`).
 
-## Optional: VLM as calibrator
+## Optional: VLM as clock ROI calibrator
 
-**Fully optional** (like OCR and opencv): no VLM dependency by default; when `vlm.enabled` is false or the backend is unavailable, a stub is used and the pipeline is unchanged. You can enable a **local vision-language model** (e.g. Moondream2 via llama.cpp) to choose the scorebug/clock ROI from candidate boxes instead of OCR-only. The VLM is used as a **calibrator** (dozens of frame-queries), not as the main signal. CPU-only by default; GPU offload is a config switch. See **[docs/VLM.md](docs/VLM.md)** for config, backends, and module boundaries.
+**Fully optional** (like OCR and opencv): no VLM dependency by default. When `vlm.enabled` is false or the backend is unavailable, a stub is used and the pipeline is unchanged.
+
+**What it does:** On real sports footage, when auto-detecting the scorebug/clock region, the pipeline can ask a **vision-language model** “which of these candidate regions shows the game clock?” and lock OCR onto that ROI. The VLM is used as a **calibrator** (dozens of frame-queries), not as the main signal. On synthetic fixture (e.g. `--gen-fixture`) there is no real scorebug, so the VLM never picks one and the result is the same as with VLM off.
+
+### VLM install
+
+Use a venv so system Python stays clean:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install numpy opencv-python llama-cpp-python huggingface-hub
+# Optional for OCR: .venv/bin/pip install pytesseract
+```
+
+No local GGUF download needed: the backend can load **Moondream2** from HuggingFace (`vikhyatk/moondream2`) on first use.
+
+### VLM config
+
+In `condensearr_config.full.json` (or your config), set:
+
+```json
+"vlm": {
+  "enabled": true,
+  "backend": "llama_cpp",
+  "model_path": "vikhyatk/moondream2",
+  "max_clock_calibration_queries": 20,
+  "n_gpu_layers": 0
+}
+```
+
+- **model_path** — `"vikhyatk/moondream2"` loads from HuggingFace; or a local path to a multimodal GGUF.
+- **n_gpu_layers** — `0` = CPU only; `-1` = full GPU offload (if llama-cpp-python was built with GPU).
+
+### Run with VLM
+
+Same as usual; the full config enables VLM when the above is set:
+
+```bash
+.venv/bin/python3 condensearr.py /path/to/game.mkv --config condensearr_config.full.json --emit-diagnostics diag.json
+.venv/bin/python3 run_matrix.py matrix_nba/nba_clip_10min.mkv matrix_nba
+```
+
+If the VLM backend fails to load (missing package or wrong API), the pipeline falls back to OCR-only ROI selection with no error. See **[docs/VLM.md](docs/VLM.md)** for design, config keys, and module boundaries.
 
 ## Docs
 
