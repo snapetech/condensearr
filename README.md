@@ -68,6 +68,18 @@ Condensearr writes `<output>.fused.edl` beside the output so you can validate wi
 - Use `--out-dir`, `CONDENSEARR_CONFIG`, and `--min-duration` for unattended runs.
 - See **[docs/ARR_INTEGRATION.md](docs/ARR_INTEGRATION.md)** for Tdarr Run CLI and Sonarr/Radarr custom script examples.
 
+## Testing
+
+Install all dependencies (including optional) and run tests:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt pytesseract opencv-python pytest
+.venv/bin/pytest tests/ -v
+```
+
+Or with unittest (no pytest): `python3 -m unittest discover -s tests -v`
+
 ## Docs
 
 - **[docs/DESIGN.md](docs/DESIGN.md)** — Design and signal logic (motion, audio, OCR, fusion, validation).
