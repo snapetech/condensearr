@@ -38,5 +38,13 @@
     "container": "mkv",
     "threads": 0,
     "parallel_jobs": 0
+  },
+  "vlm": {
+    "enabled": true,
+    "backend": "llama_cpp",
+    "model_path": "vikhyatk/moondream2",
+    "max_clock_calibration_queries": 20,
+    "max_appeals_queries": 500,
+    "n_gpu_layers": 0
   }
 }

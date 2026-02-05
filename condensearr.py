@@ -486,11 +486,22 @@ class RenderConfig:
 
 
 @dataclass
+class VlmConfig:
+    enabled: bool = False
+    backend: str = "none"  # none | llama_cpp
+    model_path: str = ""
+    max_clock_calibration_queries: int = 20
+    max_appeals_queries: int = 500
+    n_gpu_layers: int = 0  # 0 = CPU only; -1 = full GPU offload
+
+
+@dataclass
 class AppConfig:
     ocr: Optional[OcrConfig]
     audio_weights: AudioWeights
     combine: CombineConfig
     render: RenderConfig
+    vlm: Optional[VlmConfig] = None
 
 
 def parse_config(path: Path) -> AppConfig:
@@ -548,7 +559,18 @@ def parse_config(path: Path) -> AppConfig:
         threads=int(r.get("threads", 0)),
         parallel_jobs=int(r.get("parallel_jobs", 0)) or ncpu,
     )
-    return AppConfig(ocr=ocr_cfg, audio_weights=audio_weights, combine=combine, render=render)
+    vlm_cfg = None
+    if "vlm" in cfg and cfg["vlm"] is not None:
+        v = cfg["vlm"]
+        vlm_cfg = VlmConfig(
+            enabled=bool(v.get("enabled", False)),
+            backend=str(v.get("backend", "none")),
+            model_path=str(v.get("model_path", "")),
+            max_clock_calibration_queries=int(v.get("max_clock_calibration_queries", 20)),
+            max_appeals_queries=int(v.get("max_appeals_queries", 500)),
+            n_gpu_layers=int(v.get("n_gpu_layers", 0)),
+        )
+    return AppConfig(ocr=ocr_cfg, audio_weights=audio_weights, combine=combine, render=render, vlm=vlm_cfg)
 
 
 def parse_time_str(s: str) -> Optional[int]:
@@ -1017,6 +1039,29 @@ def ocr_time_hit_rate(frames_bgr: List[np.ndarray], roi: Roi, cfg: OcrConfig) ->
     return hits / float(total)
 
 
+def get_frames_for_roi_detect(
+    input_path: Path,
+    tmpdir: Path,
+    *,
+    sample_fps: float = 1.0,
+    max_frames: int = 160,
+    scale_w: int = 640,
+) -> Optional[List[np.ndarray]]:
+    """Load BGR frames for ROI/scorebug detection. Returns None if opencv missing or too few frames."""
+    if cv2 is None:
+        return None
+    frames_dir = tmpdir / "auto_frames"
+    paths = ffmpeg_sample_pngs(input_path, frames_dir, fps=sample_fps, max_frames=max_frames, scale_w=scale_w)
+    frames = []
+    for p in paths:
+        img = cv2.imread(str(p), cv2.IMREAD_COLOR)
+        if img is not None:
+            frames.append(img)
+    if len(frames) < 12:
+        return None
+    return frames
+
+
 def autodetect_scorebug_roi(
     input_path: Path,
     tmpdir: Path,
@@ -1028,24 +1073,22 @@ def autodetect_scorebug_roi(
     max_area_frac: float = 0.08,
     candidates_keep: int = 12,
     ocr_cfg: Optional[OcrConfig] = None,
-    debug_dir: Optional[Path] = None
+    debug_dir: Optional[Path] = None,
+    frames: Optional[List[np.ndarray]] = None,
 ) -> Optional[Roi]:
     """
     Detect a persistent, text/edge-dense overlay region (scorebug), then OCR-validate for time-like text.
     Requires opencv-python. OCR validation requires pytesseract.
+    If frames is provided, use them instead of loading (avoids double decode when VLM path runs first).
     """
     if cv2 is None:
         return None
 
-    frames_dir = tmpdir / "auto_frames"
-    paths = ffmpeg_sample_pngs(input_path, frames_dir, fps=sample_fps, max_frames=max_frames, scale_w=scale_w)
-    frames = []
-    for p in paths:
-        img = cv2.imread(str(p), cv2.IMREAD_COLOR)
-        if img is not None:
-            frames.append(img)
-
-    if len(frames) < 12:
+    if frames is None:
+        frames = get_frames_for_roi_detect(
+            input_path, tmpdir, sample_fps=sample_fps, max_frames=max_frames, scale_w=scale_w
+        )
+    if frames is None or len(frames) < 12:
         return None
 
     H, W = frames[0].shape[:2]
@@ -1170,7 +1213,7 @@ def main() -> int:
     if config_path:
         cfg = parse_config(Path(config_path).expanduser().resolve())
     else:
-        cfg = AppConfig(ocr=None, audio_weights=AudioWeights(), combine=CombineConfig(), render=RenderConfig())
+        cfg = AppConfig(ocr=None, audio_weights=AudioWeights(), combine=CombineConfig(), render=RenderConfig(), vlm=None)
 
     if args.target_minutes is not None:
         cfg.combine.target_minutes = float(args.target_minutes)
@@ -1302,15 +1345,38 @@ def main() -> int:
                     eprint("WARN:", msg)
                 else:
                     eprint("Auto-detecting scorebug ROI...")
-                    used_roi = autodetect_scorebug_roi(
-                        input_path,
-                        tmpdir,
-                        sample_fps=1.0,
-                        max_frames=160,
-                        scale_w=640,
-                        ocr_cfg=ocr_cfg,
-                        debug_dir=debug_dir
-                    )
+                    roi_frames_roi: Optional[List[np.ndarray]] = None
+                    # VLM calibrator (optional): ask VLM which candidate is the clock before falling back to OCR
+                    if cfg.vlm and getattr(cfg.vlm, "enabled", False):
+                        roi_frames_roi = get_frames_for_roi_detect(
+                            input_path, tmpdir, sample_fps=1.0, max_frames=160, scale_w=640
+                        )
+                        if roi_frames_roi:
+                            try:
+                                from roi_proposals import propose_scorebug_candidates
+                                from vision_judge import get_vision_judge, StubVisionJudge
+                                candidates = propose_scorebug_candidates(roi_frames_roi, max_candidates=12)
+                                if candidates:
+                                    judge = get_vision_judge(cfg)
+                                    if not isinstance(judge, StubVisionJudge):
+                                        res = judge.which_roi_is_clock(roi_frames_roi, candidates)
+                                        if res is not None:
+                                            idx, _ = res
+                                            used_roi = Roi(*candidates[idx])
+                                            eprint(f"VLM calibrator ROI: x={used_roi.x} y={used_roi.y} w={used_roi.w} h={used_roi.h}")
+                            except Exception as e:
+                                eprint("WARN: VLM calibrator failed, falling back to OCR:", e)
+                    if used_roi is None:
+                        used_roi = autodetect_scorebug_roi(
+                            input_path,
+                            tmpdir,
+                            sample_fps=1.0,
+                            max_frames=160,
+                            scale_w=640,
+                            ocr_cfg=ocr_cfg,
+                            debug_dir=debug_dir,
+                            frames=roi_frames_roi,
+                        )
                     if used_roi is None:
                         msg = "Auto ROI detection failed to find a confident clock region."
                         if cfg.combine.require_ocr:

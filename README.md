@@ -40,6 +40,7 @@ python3 validate_condensed.py --output condensed.mkv --diagnostics diagnostics.j
 
 For production runs, use **fused** mode (default) with the full config so motion, audio, and optional clock OCR are all used. See [Best way to run](#best-way-to-run) below. **Default:** variable-length — we remove the most obviously removable (low-action) content. **Optional:** pass `--target-minutes N` to condense to a fixed length (e.g. 18 min). See [docs/DESIGN.md](docs/DESIGN.md#condensing-model).
 
+x “remove by threshold / variable output.” See [docs/DESIGN.md](docs/DESIGN.md#condensing-model).
 
 ## Options (summary)
 
@@ -126,9 +127,14 @@ Or without pytest: `python3 -m unittest discover -s tests -v`
 
 Tests include: CLI help and imports, optional deps, `compute_cut_quality_stats`, and the **method matrix** (matrix JSON structure and a one-combo smoke run with `run_matrix.py --gen-fixture --limit 1`).
 
+## Optional: VLM as calibrator
+
+**Fully optional** (like OCR and opencv): no VLM dependency by default; when `vlm.enabled` is false or the backend is unavailable, a stub is used and the pipeline is unchanged. You can enable a **local vision-language model** (e.g. Moondream2 via llama.cpp) to choose the scorebug/clock ROI from candidate boxes instead of OCR-only. The VLM is used as a **calibrator** (dozens of frame-queries), not as the main signal. CPU-only by default; GPU offload is a config switch. See **[docs/VLM.md](docs/VLM.md)** for config, backends, and module boundaries.
+
 ## Docs
 
 - **[docs/DESIGN.md](docs/DESIGN.md)** — Design and signal logic (motion, audio, OCR, fusion, validation).
+- **[docs/VLM.md](docs/VLM.md)** — Optional VLM (calibrator + appeals court), CPU/GPU, backends.
 - **[docs/METHOD_MATRIX.md](docs/METHOD_MATRIX.md)** — Method matrix: how to run, interpret, and what the results mean.
 - **[docs/METHOD_MATRIX_RESULTS.md](docs/METHOD_MATRIX_RESULTS.md)** — NBA clip reference results table.
 - **[docs/ARR_INTEGRATION.md](docs/ARR_INTEGRATION.md)** — Tdarr and *Arr integration.
