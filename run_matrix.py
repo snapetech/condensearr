@@ -82,6 +82,7 @@ def main() -> int:
     ap.add_argument("--render", action="store_true", help="Run full encode for each combo (default: analysis-only).")
     ap.add_argument("--gen-fixture", action="store_true", help="Generate a short test video in out_dir and use it (for CI/demo).")
     ap.add_argument("--limit", type=int, default=0, help="Run only first N combos (0 = all). For CI/smoke test.")
+    ap.add_argument("--target-minutes", type=float, default=0, help="Override target_minutes in config (e.g. 5 for a 10-min clip so we actually condense).")
     args = ap.parse_args()
 
     out_dir = Path(args.out_dir).expanduser().resolve()
@@ -122,9 +123,12 @@ def main() -> int:
     else:
         base_config = {
             "audio_weights": {"w_motion": 0.35, "w_rms": 0.35, "w_flux": 0.20, "w_whistle": 0.10},
-            "combine": {"target_minutes": 18.0, "render_mode": "fused"},
+            "combine": {"target_minutes": 0, "render_mode": "fused"},
             "render": {},
         }
+    if args.target_minutes > 0:
+        base_config.setdefault("combine", {})["target_minutes"] = args.target_minutes
+        print(f"Overriding target_minutes to {args.target_minutes}")
 
     matrix = load_json(matrix_path)
     combos = matrix.get("combos", [])

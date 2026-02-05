@@ -28,7 +28,7 @@ pip install pytesseract opencv-python
 # Minimal: output next to input as <stem>.condensed.mkv
 python3 condensearr.py /path/to/recording.mkv
 
-# Recommended: full config + diagnostics for validation
+# Recommended: full config + diagnostics (default = variable-length; add --target-minutes 18 for fixed length)
 python3 condensearr.py /path/to/recording.mkv \
   --config condensearr_config.full.json \
   --out condensed.mkv \
@@ -38,7 +38,8 @@ python3 condensearr.py /path/to/recording.mkv \
 python3 validate_condensed.py --output condensed.mkv --diagnostics diagnostics.json
 ```
 
-For production runs, use **fused** mode (default) with the full config so motion, audio, and optional clock OCR are all used. See [Best way to run](#best-way-to-run) below.
+For production runs, use **fused** mode (default) with the full config so motion, audio, and optional clock OCR are all used. See [Best way to run](#best-way-to-run) below. **Default:** variable-length — we remove the most obviously removable (low-action) content. **Optional:** pass `--target-minutes N` to condense to a fixed length (e.g. 18 min). See [docs/DESIGN.md](docs/DESIGN.md#condensing-model).
+
 
 ## Options (summary)
 
@@ -48,7 +49,7 @@ For production runs, use **fused** mode (default) with the full config so motion
 | `--out` | Output file path. |
 | `--out-dir DIR` | Write output as `DIR/<stem>.condensed.<ext>` (for Tdarr/Arr). |
 | `--config PATH` | JSON config; default from `CONDENSEARR_CONFIG` env if set. |
-| `--target-minutes N` | Target condensed length in minutes. |
+| `--target-minutes N` | Optional. Target output length in minutes; if omitted, variable-length (remove low-action only). |
 | `--min-duration SEC` | Skip if source duration < SEC (exit 0). For automation. |
 | `--jobs N` | Parallel encode jobs (0 = auto; “nice” mode caps at 2). |
 | `--no-nice` | Don’t use nice/ionice; use full CPU. |
@@ -66,8 +67,9 @@ Default behavior uses low CPU priority (nice 19) and idle I/O (ionice -c 3) so t
 For real games, use **fused** (default) with the full config and validate afterward:
 
 1. **Config:** `--config condensearr_config.full.json`. Add `--auto-roi` or `--clock-roi x,y,w,h` if the clock isn’t in the config.
-2. **Diagnostics:** `--emit-diagnostics path/to/diag.json` so you can run the validator.
-3. **Validate:** `python3 validate_condensed.py --output <out>.mkv --diagnostics diag.json`. Expect action ratio ≥ 1.2 and fraction of hard events in kept ≥ 0.9.
+2. **Length:** Omit `--target-minutes` for variable-length, or pass `--target-minutes 18` to condense to 18 minutes.
+3. **Diagnostics:** `--emit-diagnostics path/to/diag.json` so you can run the validator.
+4. **Validate:** `python3 validate_condensed.py --output <out>.mkv --diagnostics diag.json`. Expect action ratio ≥ 1.2 and fraction of hard events in kept ≥ 0.9.
 
 Single-signal methods (motion-only, RMS-only, etc.) are for comparison only; they often miss whistles/peaks. The method matrix (below) proves fused is the right default.
 

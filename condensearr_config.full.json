@@ -19,7 +19,8 @@
   },
   "combine": {
     "dt": 0.5,
-    "target_minutes": 18.0,
+    "target_minutes": 0,
+    "no_target_quantile": 0.5,
     "padding_pre": 2.0,
     "padding_post": 4.0,
     "min_segment": 2.0,

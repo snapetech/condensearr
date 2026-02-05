@@ -39,7 +39,10 @@ Install:
   pip install numpy pytesseract opencv-python
 
 Example:
-  python condensearr.py input.mkv --config condensearr_config.example.json --target-minutes 18 --out condensed.mkv
+  # Variable-length (default): remove low-action only
+  python condensearr.py input.mkv --out condensed.mkv
+  # Fixed length: condense to 18 minutes
+  python condensearr.py input.mkv --target-minutes 18 --out condensed.mkv
 
 Arr/Tdarr automation:
   - Use --out-dir DIR to write output to a directory (e.g. Tdarr cache or a library).
@@ -459,7 +462,8 @@ class AudioWeights:
 @dataclass
 class CombineConfig:
     dt: float = 0.5
-    target_minutes: float = 18.0
+    target_minutes: float = 0.0  # 0 = variable-length (remove low-action); >0 = condense to this many minutes
+    no_target_quantile: float = 0.5  # when target_minutes=0, keep bins with action >= this quantile (default median)
     padding_pre: float = 2.0
     padding_post: float = 4.0
     min_segment: float = 2.0
@@ -521,7 +525,8 @@ def parse_config(path: Path) -> AppConfig:
     c = cfg.get("combine", {})
     combine = CombineConfig(
         dt=float(c.get("dt", 0.5)),
-        target_minutes=float(c.get("target_minutes", 18.0)),
+        target_minutes=float(c.get("target_minutes", 0.0)),
+        no_target_quantile=float(c.get("no_target_quantile", 0.5)),
         padding_pre=float(c.get("padding_pre", 2.0)),
         padding_post=float(c.get("padding_post", 4.0)),
         min_segment=float(c.get("min_segment", 2.0)),
@@ -754,6 +759,14 @@ def write_edl(segs: List[Tuple[float, float]], path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def segments_from_quantile(action_z: np.ndarray, base_mask: np.ndarray, dt: float, quantile: float, min_len: float, merge_gap: float) -> List[Tuple[float, float]]:
+    """Build segments by keeping bins with action >= quantile (no target length). Variable output length."""
+    thr = float(np.quantile(action_z, quantile))
+    m = (action_z >= thr).astype(np.uint8)
+    m = (m * (base_mask > 0.5).astype(np.uint8)).astype(np.uint8)
+    return merge_segments(segments_from_mask(m, dt, min_len), merge_gap)
+
+
 def binary_search_quantile(action_z: np.ndarray, base_mask: np.ndarray, dt: float, target_seconds: float, min_len: float, merge_gap: float, max_iter: int = 18) -> Tuple[float, List[Tuple[float, float]]]:
     lo = 0.50
     hi = 0.985
@@ -794,20 +807,21 @@ def pick_segments(
       - fused
     """
     dt = cfg.dt
-    target_seconds = cfg.target_minutes * 60.0
-
+    target_seconds = cfg.target_minutes * 60.0 if cfg.target_minutes > 0 else 0.0
+    use_target = target_seconds > 0
     ones = np.ones_like(action_z, dtype=np.float32)
 
-    # Action-only: pick top quantile to hit target.
-    q_a, segs_a = binary_search_quantile(action_z, ones, dt, target_seconds, cfg.min_segment, cfg.merge_gap)
+    # Action-only: either hit target length (binary search) or variable-length (single quantile = remove low-action).
+    if use_target:
+        _q_a, segs_a = binary_search_quantile(action_z, ones, dt, target_seconds, cfg.min_segment, cfg.merge_gap)
+    else:
+        segs_a = segments_from_quantile(action_z, ones, dt, cfg.no_target_quantile, cfg.min_segment, cfg.merge_gap)
 
-    # Clock-only: just running-clock as segments, then trimmed to target if needed by taking earliest/highest-action chunks.
+    # Clock-only: running-clock segments; if target set and clock longer than target, trim to target by highest action.
     segs_c: List[Tuple[float, float]] = []
     if clock_mask_dt is not None and len(clock_mask_dt) > 0:
         segs_c = merge_segments(segments_from_mask((clock_mask_dt > 0.5).astype(np.uint8), dt, cfg.min_segment), cfg.merge_gap)
-        # If clock-only is longer than target (usually), reduce by selecting subsegments with highest action.
-        if total_len(segs_c) > target_seconds:
-            # score each segment by mean action, keep best until target
+        if use_target and total_len(segs_c) > target_seconds:
             scored = []
             for a, b in segs_c:
                 i0 = int(a / dt)
@@ -828,17 +842,18 @@ def pick_segments(
                     break
             segs_c = merge_segments(sorted(keep, key=lambda x: x[0]), cfg.merge_gap)
 
-    # Fused: hard events + clock-weighted fill.
+    # Fused: hard events + clock-weighted fill (target length or variable-length).
     base = ones
     if clock_mask_dt is not None and len(clock_mask_dt) > 0:
-        # Degrade gracefully: if OCR confidence is low, base leans toward "ones" (Strategy A)
         w = max(0.0, min(1.0, cfg.clock_weight * clock_conf))
         base = (1.0 - w) * ones + w * clock_mask_dt.astype(np.float32)
 
     hard_segs = merge_segments(segments_from_mask(hard_event_mask.astype(np.uint8), dt, cfg.min_segment), cfg.merge_gap)
-    remaining_target = max(0.0, target_seconds - total_len(hard_segs))
-    q_f, fill = binary_search_quantile(action_z, base, dt, remaining_target, cfg.min_segment, cfg.merge_gap)
-
+    if use_target:
+        remaining_target = max(0.0, target_seconds - total_len(hard_segs))
+        _q_f, fill = binary_search_quantile(action_z, base, dt, remaining_target, cfg.min_segment, cfg.merge_gap)
+    else:
+        fill = segments_from_quantile(action_z, base, dt, cfg.no_target_quantile, cfg.min_segment, cfg.merge_gap)
     segs_f = merge_segments(hard_segs + fill, cfg.merge_gap)
 
     # Pad + merge + cap
@@ -1120,7 +1135,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Build a condensed cut from a local sports recording by fusing video/audio/OCR signals.")
     ap.add_argument("input", type=str, help="Input video file path (local).")
     ap.add_argument("--config", type=str, default="", help="JSON config path; default from CONDENSEARR_CONFIG env if set.")
-    ap.add_argument("--target-minutes", type=float, default=None, help="Override target minutes.")
+    ap.add_argument("--target-minutes", type=float, default=None, help="Target output length in minutes (optional). If omitted, variable-length: remove low-action only (no fixed length).")
     ap.add_argument("--out", type=str, default="", help="Output file path.")
     ap.add_argument("--out-dir", type=str, default="", help="Output directory (filename = input stem + .condensed.<ext>). For Arr/Tdarr.")
     ap.add_argument("--min-duration", type=float, default=0, help="Skip if source duration < this many seconds (exit 0). For Arr filters.")
@@ -1356,7 +1371,8 @@ def main() -> int:
         segs = cutlists[mode]
 
         eprint(f"Cutlist lengths (sec): action={total_len(cutlists['action']):.1f}, clock={total_len(cutlists['clock']):.1f}, fused={total_len(cutlists['fused']):.1f}")
-        eprint(f"Rendering mode: {mode}, segments={len(segs)}, total={total_len(segs):.1f}s target={cfg.combine.target_minutes*60:.1f}s")
+        targ = f" target={cfg.combine.target_minutes*60:.1f}s" if cfg.combine.target_minutes > 0 else " (variable-length, no target)"
+        eprint(f"Rendering mode: {mode}, segments={len(segs)}, total={total_len(segs):.1f}s{targ}")
 
         # Write EDLs
         edl_dir = tmpdir / "edl"

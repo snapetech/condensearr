@@ -16,6 +16,16 @@ The pipeline:
 
 No real-time throttling; everything runs as fast as disk/CPU allow.
 
+## Condensing model
+
+**Default: variable-length (remove most optional removals).** **Optional: target length.**
+
+- **No target (default):** `target_minutes` is 0 or omitted. We keep segments where action is above a configurable quantile (default **median**, `no_target_quantile: 0.5`). We remove the most obviously removable (low-action) content; output length is whatever that gives.
+- **Target length (option):** When `target_minutes > 0` (config or `--target-minutes N`), we condense **to** that many minutes via binary search on the action quantile.
+- **Example (target):** 106-minute game with `--target-minutes 18` → ~18-minute cut.
+- **Example (no target):** Same game with default config → above-median action (and hard events); output length varies (e.g. ~45–60 min).
+- **When source is shorter than target:** We get as close as possible; prefer a target ≤ source length for short clips.
+
 ## Signals
 
 ### Video: motion energy
@@ -52,10 +62,10 @@ No real-time throttling; everything runs as fast as disk/CPU allow.
 
 ## Segment selection
 
-- **Target length** — e.g. 18 minutes (configurable).
-- **Strategy A (action-only):** Binary search on a quantile of `action_z` so that total length of segments (after merge/pad) approximates the target. No clock.
-- **Strategy B (clock-only):** Segments where “clock running” is high; then trim to target by keeping highest-action subsegments.
-- **Strategy C (fused, default):** Hard events are always kept. Remaining target length is filled by a quantile search on `action_z` weighted by the clock mask. Then pad (pre/post) and merge nearby segments.
+- **Target length** — Optional. If `target_minutes > 0`, we aim for that many minutes of output. If 0 or omitted (default), we use a single quantile (default median) so we keep “above median action” — variable output length.
+- **Strategy A (action-only):** If target set: binary search on quantile to hit target length. If no target: keep bins with action above `no_target_quantile` (default 0.5). No clock.
+- **Strategy B (clock-only):** Segments where “clock running” is high. If target set and clock segments exceed it, trim to target by keeping highest-action subsegments. If no target, keep all clock-running segments.
+- **Strategy C (fused, default):** Hard events are always kept. If target set: fill remaining length by binary search on clock-weighted action. If no target: add segments from clock-weighted action above `no_target_quantile`. Then pad (pre/post) and merge.
 
 Result: one ordered list of `(start_sec, end_sec)` segments — the “fused” cutlist.
 
