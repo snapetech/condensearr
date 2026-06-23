@@ -1,4 +1,4 @@
-numpy>=2.4.6
+numpy>=2.5.0
 # Optional for OCR and auto scorebug detection:
 # pytesseract
 # opencv-python
